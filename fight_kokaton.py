@@ -24,6 +24,23 @@ def check_bound(obj_rct: pg.Rect) -> tuple[bool, bool]:
         tate = False
     return yoko, tate
 
+class Explosion:
+    """
+    バクハツ エフェクト に関するクラス
+    """
+    def __init__(self, center: tuple[int, int]):
+        self.img = pg.transform.rotozoom(pg.image.load("fig/explosion.png"), 0, 1.0)
+        self.rct = self.img.get_rect(center=center)
+        self.life = 20   # エフェクト寿命（フレーム数）
+
+    def update(self, screen: pg.Surface):
+        """
+        エフェクトを描画し，寿命を1ずつ減らす
+        """
+        screen.blit(self.img, self.rct)
+        self.life -= 1
+        return self.life > 0  # 寿命が残っているかどうか
+
 
 class Bird:
     """
@@ -192,6 +209,8 @@ def main():
     # Scoreインスタンスの生成
     score = Score()
     score.pos_y = HEIGHT - 50 
+
+    explosions: list[Explosion] = []  # 追加：爆発エフェクトのリスト
     
     clock = pg.time.Clock()
     tmr = 0

@@ -192,7 +192,6 @@ class Score:
         self.color = (0, 0, 255)
         # スコアの初期値
         self.value = 0
-        # 表示座標の初期設定（画面左下(横座標：100，縦座標：画面下部から50)）
         self.pos_x = 100
         self.pos_y = HEIGHT - 50 
         

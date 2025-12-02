@@ -116,7 +116,7 @@ class Beam:
         ビーム画像Surfaceを生成する
         引数 bird：ビームを放つこうかとん（Birdインスタンス）
         """
-        base_img = pg.image.load("fig/beam.png").convert_alpha()  # 元画像
+        base_img = pg.image.load("fig/beam.png").convert_alpha()  
         # こうかとんの向きに合わせて速度を決定
         dx, dy = bird.direction
         # safety: if direction is zero (no movement), default to right
@@ -195,7 +195,7 @@ class Score:
         self.pos_x = 100
         self.pos_y = HEIGHT - 50 
         
-        # 初期Surfaceの生成（カタカナ）
+        # 初期Surfaceの生成
         text = f"スコア: {self.value}"
         self.img = self.font.render(text, 0, self.color)
         self.rct = self.img.get_rect(topleft=(self.pos_x, self.pos_y))

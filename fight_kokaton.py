@@ -2,6 +2,7 @@ import os
 import random
 import sys
 import time
+import math
 import pygame as pg
 
 
@@ -29,6 +30,7 @@ class Explosion:
     バクハツ エフェクト に関するクラス
     """
     def __init__(self, center: tuple[int, int]):
+        # アニメGIF ではなく単一画像でも動作します
         self.img = pg.transform.rotozoom(pg.image.load("fig/explosion.gif"), 0, 1.0)
         self.rct = self.img.get_rect(center=center)
         self.life = 20   # エフェクト寿命（フレーム数）
@@ -73,12 +75,12 @@ class Bird:
         self.img = __class__.imgs[(+5, 0)]
         self.rct: pg.Rect = self.img.get_rect()
         self.rct.center = xy
+        # 現在向き（vx, vy）：初期は右向き
+        self.direction = (+5, 0)
 
     def change_img(self, num: int, screen: pg.Surface):
         """
         こうかとん画像を切り替え，画面に転送する
-        引数1 num：こうかとん画像ファイル名の番号
-        引数2 screen：画面Surface
         """
         self.img = pg.transform.rotozoom(pg.image.load(f"fig/{num}.png"), 0, 0.9)
         screen.blit(self.img, self.rct)
@@ -86,8 +88,6 @@ class Bird:
     def update(self, key_lst: list[bool], screen: pg.Surface):
         """
         押下キーに応じてこうかとんを移動させる
-        引数1 key_lst：押下キーの真理値リスト
-        引数2 screen：画面Surface
         """
         sum_mv = [0, 0]
         for k, mv in __class__.delta.items():
@@ -98,33 +98,56 @@ class Bird:
         if check_bound(self.rct) != (True, True):
             self.rct.move_ip(-sum_mv[0], -sum_mv[1])
         if not (sum_mv[0] == 0 and sum_mv[1] == 0):
+            # 向きを更新（Beamで参照される）
+            self.direction = (sum_mv[0], sum_mv[1])
+            # 画像切替
+            # sum_mvは移動量（例: [5,0]）だが imgs の key として使える
+            # 必要に応じてタプルに
             self.img = __class__.imgs[tuple(sum_mv)]
         screen.blit(self.img, self.rct)
 
 
 class Beam:
     """
-    こうかとんが放つビームに関するクラス
+    こうかとんが放つビームに関するクラス（向き対応）
     """
     def __init__(self, bird:"Bird"):
         """
         ビーム画像Surfaceを生成する
         引数 bird：ビームを放つこうかとん（Birdインスタンス）
         """
-        self.img = pg.image.load(f"fig/beam.png")  # Surface
-        self.rct = self.img.get_rect()  # Rect
-        self.rct.centery = bird.rct.centery  # ビームの中心縦座標 = こうかとんの中心縦座標
-        self.rct.left = bird.rct.right  # ビームの左座標 = こうかとんの右座標
-        self.vx, self.vy = +5, 0
+        base_img = pg.image.load("fig/beam.png").convert_alpha()  # 元画像
+        # こうかとんの向きに合わせて速度を決定
+        dx, dy = bird.direction
+        # safety: if direction is zero (no movement), default to right
+        if dx == 0 and dy == 0:
+            dx, dy = (+5, 0)
+
+        # set velocity from bird.direction (values are multiples of 5)
+        self.vx, self.vy = dx, dy
+
+        # angle for rotating beam image so it visually matches direction
+        # atan2: (y, x) but note coordinate system for screen y is down => invert vy sign for angle calc
+        angle = math.degrees(math.atan2(-self.vy, self.vx))
+        self.img = pg.transform.rotozoom(base_img, angle, 1.0)
+        self.rct = self.img.get_rect()
+
+        # place beam at bird edge in the shooting direction
+        # normalize direction to unit step based on delta magnitude (delta values are ±5 or 0)
+        ndx = dx / 5
+        ndy = dy / 5
+        offset = max(bird.rct.width, bird.rct.height) // 2 + 8  # start just outside bird
+        # center origin then offset
+        self.rct.centerx = bird.rct.centerx + int(ndx * offset)
+        self.rct.centery = bird.rct.centery + int(ndy * offset)
 
     def update(self, screen: pg.Surface):
         """
         ビームを速度ベクトルself.vx, self.vyに基づき移動させる
-        引数 screen：画面Surface
         """
         self.rct.move_ip(self.vx, self.vy)
         screen.blit(self.img, self.rct)
-        
+
 
 class Bomb:
     """
@@ -133,12 +156,10 @@ class Bomb:
     def __init__(self, color: tuple[int, int, int], rad: int):
         """
         引数に基づき爆弾円Surfaceを生成する
-        引数1 color：爆弾円の色タプル
-        引数2 rad：爆弾円の半径
         """
-        self.img = pg.Surface((2*rad, 2*rad))
+        self.img = pg.Surface((2*rad, 2*rad), pg.SRCALPHA)
         pg.draw.circle(self.img, color, (rad, rad), rad)
-        self.img.set_colorkey((0, 0, 0))
+        # self.img.set_colorkey((0, 0, 0))  # not needed with SRCALPHA
         self.rct = self.img.get_rect()
         self.rct.center = random.randint(0, WIDTH), random.randint(0, HEIGHT)
         self.vx, self.vy = +5, +5
@@ -146,7 +167,6 @@ class Bomb:
     def update(self, screen: pg.Surface):
         """
         爆弾を速度ベクトルself.vx, self.vyに基づき移動させる
-        引数 screen：画面Surface
         """
         yoko, tate = check_bound(self.rct)
         if not yoko:
@@ -176,7 +196,7 @@ class Score:
         self.pos_x = 100
         self.pos_y = HEIGHT - 50 
         
-        # 初期Surfaceの生成
+        # 初期Surfaceの生成（カタカナ）
         text = f"スコア: {self.value}"
         self.img = self.font.render(text, 0, self.color)
         self.rct = self.img.get_rect(topleft=(self.pos_x, self.pos_y))
@@ -184,15 +204,11 @@ class Score:
     def update(self, screen: pg.Surface):
         """
         現在のスコアを描画する
-        引数 screen：画面Surface
         """
         # 現在のスコアを表示させる文字列Surfaceの生成
         text = f"スコア: {self.value}"
         self.img = self.font.render(text, 0, self.color)
-        
         self.rct = self.img.get_rect(topleft=(self.pos_x, self.pos_y))
-        
-        # スクリーンにblit
         screen.blit(self.img, self.rct)
 
 
@@ -251,6 +267,7 @@ def main():
                 
                 # 衝突判定
                 if beam.rct.colliderect(bomb.rct):
+                    # 爆発エフェクトを追加（爆弾の中心）
                     explosions.append(Explosion(bomb.rct.center))
                     # 衝突した要素はNoneとする
                     beams[i] = None  # ビームをNoneに
@@ -293,6 +310,7 @@ def main():
         # スコアを描画
         score.update(screen)
 
+        # 爆発エフェクトの更新（描画の最後のほうに置く）
         new_explosions = []
         for ex in explosions:
             if ex.update(screen):  # 寿命が残っているエフェクトだけ残す

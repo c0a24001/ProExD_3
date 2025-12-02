@@ -29,7 +29,7 @@ class Explosion:
     バクハツ エフェクト に関するクラス
     """
     def __init__(self, center: tuple[int, int]):
-        self.img = pg.transform.rotozoom(pg.image.load("fig/explosion.png"), 0, 1.0)
+        self.img = pg.transform.rotozoom(pg.image.load("fig/explosion.gif"), 0, 1.0)
         self.rct = self.img.get_rect(center=center)
         self.life = 20   # エフェクト寿命（フレーム数）
 
@@ -251,6 +251,7 @@ def main():
                 
                 # 衝突判定
                 if beam.rct.colliderect(bomb.rct):
+                    explosions.append(Explosion(bomb.rct.center))
                     # 衝突した要素はNoneとする
                     beams[i] = None  # ビームをNoneに
                     bombs[j] = None  # 爆弾をNoneに
@@ -291,6 +292,12 @@ def main():
             
         # スコアを描画
         score.update(screen)
+
+        new_explosions = []
+        for ex in explosions:
+            if ex.update(screen):  # 寿命が残っているエフェクトだけ残す
+                new_explosions.append(ex)
+        explosions = new_explosions
 
         pg.display.update()
         tmr += 1
